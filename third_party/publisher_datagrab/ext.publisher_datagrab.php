@@ -50,43 +50,38 @@ class Publisher_datagrab_ext {
      *
      * @param   mixed   Settings array or empty string if none exist.
      */
-    public function __construct($settings = '')
-    {
-    }
+    public function __construct($settings = '') {}
 
-    public function ajw_datagrab_pre_import($datagrab)
-    {
-        // Create cache
-        ee()->session->cache['publisher_datagrab'] = array('entry_ids' => array());
-        $this->cache =& ee()->session->cache['publisher_datagrab'];
-    }
+    public function ajw_datagrab_pre_import($datagrab) {}
 
     public function ajw_datagrab_modify_data($item)
     {
-        // var_dump($item); die;
-        // $this->cache['entry_ids'][] = $item['entry_id'];
+        return $item;
     }
 
     public function ajw_datagrab_post_import($datagrab)
     {
-        return;
-        var_dump($datagrab->entries); die;
-        if (empty($this->cache['entry_ids']))
+        if (empty($datagrab->entries))
         {
             return;
         }
 
+        foreach ($datagrab->entries as $k => $entry_id)
+        {
+            $datagrab->entries[$k] = (int) $entry_id;
+        }
+
         $where = array(
-            'publisher_lang_id' => $this->default_language_id,
+            'publisher_lang_id' => ee()->publisher_lib->default_lang_id,
             'publisher_status' => ee()->publisher_setting->get('default_view_status')
         );
 
         ee()->load->model('publisher_relationships');
         ee()->load->model('publisher_category');
 
-        ee()->publisher_entry->migrate_data($this->cache['entry_ids'], $where);
-        ee()->publisher_relationships->migrate_data($this->cache['entry_ids'], $where);
-        ee()->publisher_category->migrate_data($this->cache['entry_ids'], $where);
+        ee()->publisher_entry->migrate_data($datagrab->entries, $where);
+        ee()->publisher_relationships->migrate_data($datagrab->entries, $where, TRUE);
+        ee()->publisher_category->migrate_data($datagrab->entries, $where, TRUE);
     }
 
     /**
