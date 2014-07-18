@@ -52,36 +52,37 @@ class Publisher_datagrab_ext {
      */
     public function __construct($settings = '') {}
 
-    public function ajw_datagrab_pre_import($datagrab) {}
-
-    public function ajw_datagrab_modify_data($item)
+    public function ajw_datagrab_modify_data_end($data, $item)
     {
-        return $item;
+        // If the JSON/XML does not contain publisher fields, then return original data.
+        if ( !isset($item['publisher_lang_id']) && !isset($item['publisher_status']))
+        {
+            return $data;
+        }
+
+        $data['publisher_lang_id'] = $item['publisher_lang_id'];
+        $data['publisher_status'] = $item['publisher_status'];
+
+        return $data;
     }
 
+    public function ajw_datagrab_check_unique($data, $unique, $weblog_to_feed)
+    {
+
+        // If its unique return null
+        // return '';
+    }
+
+    /**
+     * Prevent entry_submission_absolute_end() from getting called after
+     * the API entry_submission_end() is called.
+     *
+     * @param Object $datagrab DataGrab instance
+     * @return void
+     */
     public function ajw_datagrab_post_import($datagrab)
     {
-        if (empty($datagrab->entries))
-        {
-            return;
-        }
-
-        foreach ($datagrab->entries as $k => $entry_id)
-        {
-            $datagrab->entries[$k] = (int) $entry_id;
-        }
-
-        $where = array(
-            'publisher_lang_id' => ee()->publisher_lib->default_lang_id,
-            'publisher_status' => ee()->publisher_setting->get('default_view_status')
-        );
-
-        ee()->load->model('publisher_relationships');
-        ee()->load->model('publisher_category');
-
-        ee()->publisher_entry->migrate_data($datagrab->entries, $where);
-        ee()->publisher_relationships->migrate_data($datagrab->entries, $where, TRUE);
-        ee()->publisher_category->migrate_data($datagrab->entries, $where, TRUE);
+        ee()->publisher_lib->stop_save = TRUE;
     }
 
     /**
@@ -104,9 +105,9 @@ class Publisher_datagrab_ext {
         );
 
         $extensions = array(
-            array('hook'=>'ajw_datagrab_pre_import', 'method'=>'ajw_datagrab_pre_import'),
-            array('hook'=>'ajw_datagrab_modify_data', 'method'=>'ajw_datagrab_modify_data'),
-            array('hook'=>'ajw_datagrab_post_import', 'method'=>'ajw_datagrab_post_import')
+            array('hook'=>'ajw_datagrab_modify_data_end', 'method'=>'ajw_datagrab_modify_data_end'),
+            array('hook'=>'ajw_datagrab_post_import', 'method'=>'ajw_datagrab_post_import'),
+            array('hook'=>'ajw_datagrab_check_unique', 'method'=>'ajw_datagrab_check_unique')
         );
 
         foreach($extensions as $extension)
