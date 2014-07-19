@@ -60,17 +60,35 @@ class Publisher_datagrab_ext {
             return $data;
         }
 
+        if ( !isset($item['entry_id']))
+        {
+            show_error('An entry_id is required for each entry being imported.');
+        }
+
         $data['publisher_lang_id'] = $item['publisher_lang_id'];
         $data['publisher_status'] = $item['publisher_status'];
+        $data['entry_id'] = $item['entry_id'];
 
         return $data;
     }
 
-    public function ajw_datagrab_check_unique($data, $unique, $weblog_to_feed)
+    public function ajw_datagrab_validate_entry($data, $entry_id)
     {
+        // If we have an entry_id, then it came from the imported $item,
+        // so just return it so DataGrab does not think its a new entry.
+        if (isset($data['entry_id']) && is_numeric($data['entry_id']))
+        {
+            $exists = ee()->db->get_where('channel_titles', array(
+                'entry_id' => $data['entry_id']
+            ))->num_rows();
 
-        // If its unique return null
-        // return '';
+            if ($exists)
+            {
+                return $data['entry_id'];
+            }
+        }
+
+        return 0;
     }
 
     /**
@@ -82,7 +100,7 @@ class Publisher_datagrab_ext {
      */
     public function ajw_datagrab_post_import($datagrab)
     {
-        ee()->publisher_lib->stop_save = TRUE;
+        // ee()->publisher_lib->stop_save = TRUE;
     }
 
     /**
@@ -107,7 +125,7 @@ class Publisher_datagrab_ext {
         $extensions = array(
             array('hook'=>'ajw_datagrab_modify_data_end', 'method'=>'ajw_datagrab_modify_data_end'),
             array('hook'=>'ajw_datagrab_post_import', 'method'=>'ajw_datagrab_post_import'),
-            array('hook'=>'ajw_datagrab_check_unique', 'method'=>'ajw_datagrab_check_unique')
+            array('hook'=>'ajw_datagrab_validate_entry', 'method'=>'ajw_datagrab_validate_entry')
         );
 
         foreach($extensions as $extension)
