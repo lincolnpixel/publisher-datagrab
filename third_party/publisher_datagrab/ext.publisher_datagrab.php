@@ -88,7 +88,7 @@ class Publisher_datagrab_ext {
             }
         }
 
-        return 0;
+        return $entry_id;
     }
 
     /**
@@ -98,10 +98,8 @@ class Publisher_datagrab_ext {
      * @param Object $datagrab DataGrab instance
      * @return void
      */
-    public function ajw_datagrab_post_import($datagrab)
-    {
-        // ee()->publisher_lib->stop_save = TRUE;
-    }
+    public function ajw_datagrab_post_import($datagrab) {}
+
 
     /**
      * Activate Extension
