@@ -11,7 +11,7 @@
  * @link        http://boldminded.com/add-ons/publisher
  * @license
  *
- * Copyright (c) 2012, 2013. BoldMinded, LLC
+ * Copyright (c) 2014. BoldMinded, LLC
  * All rights reserved.
  *
  * This source is commercial software. Use of this software requires a
