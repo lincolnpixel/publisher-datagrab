@@ -72,6 +72,20 @@ class Publisher_datagrab_ext {
         return $data;
     }
 
+    public function ajw_datagrab_final_post_data_item($data, $item, $type)
+    {
+        // If the JSON/XML does not contain publisher fields, then return original data.
+        if ( !isset($data['publisher_lang_id']) && !isset($data['publisher_status']))
+        {
+            return $item;
+        }
+
+        $item['publisher_lang_id'] = $data['publisher_lang_id'];
+        $item['publisher_status'] = $data['publisher_status'];
+
+        return $item;
+    }
+
     public function ajw_datagrab_validate_entry($data, $entry_id)
     {
         // If we have an entry_id, then it came from the imported $item,
@@ -91,6 +105,16 @@ class Publisher_datagrab_ext {
         return $entry_id;
     }
 
+    public function publisher_call($method, $parameters)
+    {
+        if ($method === 'entry_submission_absolute_end')
+        {
+            ee()->extensions->end_script = TRUE;
+        }
+    }
+
+    public function ajw_datagrab_pre_import($datagrab){}
+
     /**
      * Prevent entry_submission_absolute_end() from getting called after
      * the API entry_submission_end() is called.
@@ -98,7 +122,7 @@ class Publisher_datagrab_ext {
      * @param Object $datagrab DataGrab instance
      * @return void
      */
-    public function ajw_datagrab_post_import($datagrab) {}
+    public function ajw_datagrab_post_import($datagrab){}
 
 
     /**
@@ -121,8 +145,11 @@ class Publisher_datagrab_ext {
         );
 
         $extensions = array(
-            array('hook'=>'ajw_datagrab_modify_data_end', 'method'=>'ajw_datagrab_modify_data_end'),
+            array('hook'=>'publisher_call', 'method'=>'publisher_call'),
+            array('hook'=>'ajw_datagrab_pre_import', 'method'=>'ajw_datagrab_pre_import'),
             array('hook'=>'ajw_datagrab_post_import', 'method'=>'ajw_datagrab_post_import'),
+            array('hook'=>'ajw_datagrab_modify_data_end', 'method'=>'ajw_datagrab_modify_data_end'),
+            array('hook'=>'ajw_datagrab_final_post_data_item', 'method'=>'ajw_datagrab_final_post_data_item'),
             array('hook'=>'ajw_datagrab_validate_entry', 'method'=>'ajw_datagrab_validate_entry')
         );
 
