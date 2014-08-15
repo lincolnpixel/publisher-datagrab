@@ -69,21 +69,18 @@ class Publisher_datagrab_ext {
         $data['publisher_status'] = $item['publisher_status'];
         $data['entry_id'] = $item['entry_id'];
 
+        ee()->publisher_lib->lang_id = $data['publisher_lang_id'];
+        ee()->publisher_lib->publisher_save_status = $data['publisher_status'];
+
         return $data;
     }
 
-    public function ajw_datagrab_final_post_data_item($data, $item, $type)
+    public function ajw_datagrab_rebuild_query($where, $type)
     {
-        // If the JSON/XML does not contain publisher fields, then return original data.
-        if ( !isset($data['publisher_lang_id']) && !isset($data['publisher_status']))
-        {
-            return $item;
-        }
+        $where['publisher_lang_id'] = ee()->publisher_lib->lang_id;
+        $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
-        $item['publisher_lang_id'] = $data['publisher_lang_id'];
-        $item['publisher_status'] = $data['publisher_status'];
-
-        return $item;
+        return $where;
     }
 
     public function ajw_datagrab_validate_entry($data, $entry_id)
@@ -107,7 +104,7 @@ class Publisher_datagrab_ext {
 
     public function publisher_call($method, $parameters)
     {
-        if ($method === 'entry_submission_absolute_end')
+        if ($method === 'entry_submission_absolute_end' && ee()->input->get('module') === 'datagrab')
         {
             ee()->extensions->end_script = TRUE;
         }
@@ -149,7 +146,7 @@ class Publisher_datagrab_ext {
             array('hook'=>'ajw_datagrab_pre_import', 'method'=>'ajw_datagrab_pre_import'),
             array('hook'=>'ajw_datagrab_post_import', 'method'=>'ajw_datagrab_post_import'),
             array('hook'=>'ajw_datagrab_modify_data_end', 'method'=>'ajw_datagrab_modify_data_end'),
-            array('hook'=>'ajw_datagrab_final_post_data_item', 'method'=>'ajw_datagrab_final_post_data_item'),
+            array('hook'=>'ajw_datagrab_rebuild_query', 'method'=>'ajw_datagrab_rebuild_query'),
             array('hook'=>'ajw_datagrab_validate_entry', 'method'=>'ajw_datagrab_validate_entry')
         );
 
