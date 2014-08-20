@@ -64,7 +64,7 @@ class Publisher_datagrab_ext {
     /**
      * Add publisher lang and status to Datagrabs $data array so they are added
      * to the entries when imported.
-     * 
+     *
      * @param $datagrab
      * @param $data
      * @param $item
@@ -109,6 +109,14 @@ class Publisher_datagrab_ext {
 
         // Track which entries we've updated.
         $this->cache[$eid][] = $lid;
+
+        // foreach ($this->cache as $eid => $languages)
+        // {
+        //     if ( !in_array(ee()->publisher_lib->default_lang_id, $languages))
+        //     {
+        //         $this->cache[$eid][] = ee()->publisher_lib->default_lang_id;
+        //     }
+        // }
 
         // Update Publisher's internals so it saves the imported entry fine.
         ee()->publisher_lib->lang_id = $data['publisher_lang_id'];
