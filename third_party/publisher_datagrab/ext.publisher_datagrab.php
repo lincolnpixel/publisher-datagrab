@@ -72,13 +72,24 @@ class Publisher_datagrab_ext {
      */
     public function ajw_datagrab_modify_data_end($datagrab, $data, $item)
     {
+        $is_translation = FALSE;
+        $lang_id = ee()->publisher_language->get_default_language_id();
+        $status = PUBLISHER_STATUS_OPEN;
+
         // If the JSON/XML does not contain publisher fields, then return original data.
-        if ( !isset($item['publisher_lang_id']) && !isset($item['publisher_status']))
+        if (isset($item['publisher_lang_id']) && isset($item['publisher_status']))
         {
-            return $data;
+            $is_translation = TRUE;
+            $data['publisher_lang_id'] = $item['publisher_lang_id'];
+            $data['publisher_status'] = $item['publisher_status'];
+        }
+        else
+        {
+            $data['publisher_lang_id'] = $lang_id;
+            $data['publisher_status'] = $status;
         }
 
-        if ( !isset($item['entry_id']))
+        if (!$is_translation && !isset($item['entry_id']))
         {
             show_error('An entry_id is required for each entry being imported.');
         }
@@ -87,36 +98,25 @@ class Publisher_datagrab_ext {
         // Added originally for fieldtypes/Publisher_matrix->post_save();
         ee()->publisher_lib->stop_post_save_hook = TRUE;
 
-        $data['publisher_lang_id'] = $item['publisher_lang_id'];
-        $data['publisher_status'] = $item['publisher_status'];
-        $data['entry_id'] = $item['entry_id'];
-
-        $eid = $data['entry_id'];
-        $lid = $data['publisher_lang_id'];
-
-        // Remove entries from Datagrabs internal array so translated entries are
-        // flagged as not unique entries.
-        if (in_array($eid, $datagrab->entries) && isset($this->cache[$eid]) && !in_array($lid, $this->cache[$eid]))
+        if ($is_translation && isset($item['entry_id']))
         {
-            foreach ($datagrab->entries as $key => $val)
-            {
-                if ($val === $eid)
-                {
-                    unset($datagrab->entries[$key]);
+            $data['entry_id'] = $item['entry_id'];
+            $eid = $data['entry_id'];
+            $lid = $data['publisher_lang_id'];
+
+            // Remove entries from Datagrabs internal array so translated entries are
+            // flagged as not unique entries.
+            if ($is_translation && in_array($eid, $datagrab->entries) && isset($this->cache[$eid]) && !in_array($lid, $this->cache[$eid])) {
+                foreach ($datagrab->entries as $key => $val) {
+                    if ($val === $eid) {
+                        unset($datagrab->entries[$key]);
+                    }
                 }
             }
+
+            // Track which entries we've updated.
+            $this->cache[$eid][] = $lid;
         }
-
-        // Track which entries we've updated.
-        $this->cache[$eid][] = $lid;
-
-        // foreach ($this->cache as $eid => $languages)
-        // {
-        //     if ( !in_array(ee()->publisher_lib->default_lang_id, $languages))
-        //     {
-        //         $this->cache[$eid][] = ee()->publisher_lib->default_lang_id;
-        //     }
-        // }
 
         // Update Publisher's internals so it saves the imported entry fine.
         ee()->publisher_lib->lang_id = $data['publisher_lang_id'];
