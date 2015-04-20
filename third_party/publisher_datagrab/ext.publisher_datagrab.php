@@ -56,7 +56,10 @@ class Publisher_datagrab_ext {
         // Create cache
         if ( !isset(ee()->session->cache['publisher_datagrab']))
         {
-            ee()->session->cache['publisher_datagrab'] = array();
+            ee()->session->cache['publisher_datagrab'] = array(
+                'entry_ids' => array(),
+                'imported' => array()
+            );
         }
         $this->cache =& ee()->session->cache['publisher_datagrab'];
     }
@@ -106,7 +109,7 @@ class Publisher_datagrab_ext {
 
             // Remove entries from Datagrabs internal array so translated entries are
             // flagged as not unique entries.
-            if ($is_translation && in_array($eid, $datagrab->entries) && isset($this->cache[$eid]) && !in_array($lid, $this->cache[$eid])) {
+            if ($is_translation && in_array($eid, $datagrab->entries) && isset($this->cache['entry_ids'][$eid]) && !in_array($lid, $this->cache['entry_ids'][$eid])) {
                 foreach ($datagrab->entries as $key => $val) {
                     if ($val === $eid) {
                         unset($datagrab->entries[$key]);
@@ -115,8 +118,10 @@ class Publisher_datagrab_ext {
             }
 
             // Track which entries we've updated.
-            $this->cache[$eid][] = $lid;
+            $this->cache['entry_ids'][$eid][] = $lid;
         }
+
+        $this->cache['imported'] = $datagrab->entry_data;
 
         // Update Publisher's internals so it saves the imported entry fine.
         ee()->publisher_lib->lang_id = $data['publisher_lang_id'];
@@ -175,7 +180,7 @@ class Publisher_datagrab_ext {
         return ee()->db->select("*")
             ->where($where)
             ->order_by("row_order")
-            ->get("exp_matrix_data");
+            ->get("matrix_data");
     }
 
     public function ajw_datagrab_rebuild_playa_query($where)
@@ -185,7 +190,7 @@ class Publisher_datagrab_ext {
 
         return ee()->db->select("child_entry_id")
             ->where($where)
-            ->get("exp_playa_relationships");
+            ->get("playa_relationships");
     }
 
     public function ajw_datagrab_rebuild_relationships_query($where)
@@ -196,7 +201,7 @@ class Publisher_datagrab_ext {
         return ee()->db->select("child_id, order")
             ->db->where($where)
             ->db->order_by("order")
-            ->db->get("exp_publisher_relationships");
+            ->db->get("publisher_relationships");
     }
 
     public function ajw_datagrab_rebuild_grid_query($where, $field_id)
@@ -205,7 +210,7 @@ class Publisher_datagrab_ext {
         $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
         return ee()->db->select("*")
-            ->db->from("exp_channel_grid_field_".$field_id)
+            ->db->from("channel_grid_field_".$field_id)
             ->db->where($where)
             ->db->order_by("row_order ASC")
             ->db->get();
@@ -217,7 +222,7 @@ class Publisher_datagrab_ext {
         $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
         return ee()->db->select("file_id")
-            ->db->from("exp_assets_selections")
+            ->db->from("assets_selections")
             ->db->where($where)
             ->db->order_by("sort_order")
             ->EE->db->get();
@@ -228,8 +233,8 @@ class Publisher_datagrab_ext {
         $where['publisher_lang_id'] = ee()->publisher_lib->lang_id;
         $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
-        return ee()->db->from("exp_store_products")
-            ->db->join("exp_store_stock", "exp_store_products.entry_id = exp_store_stock.entry_id")
+        return ee()->db->from("store_products")
+            ->db->join("store_stock", "store_products.entry_id = store_stock.entry_id")
             ->db->where($where)
             ->db->get();
     }
@@ -243,8 +248,107 @@ class Publisher_datagrab_ext {
      * @param Object $datagrab DataGrab instance
      * @return void
      */
-    public function ajw_datagrab_post_import($datagrab){}
+    public function ajw_datagrab_post_import($datagrab)
+    {
+        $imported = $this->cache['imported'];
+        $entry_categories = array();
 
+        foreach ($imported as $entry)
+        {
+            $lang_id = $entry['publisher_lang_id'];
+
+            foreach ($entry['category'] as $cat_id)
+            {
+                if (!isset($entry_categories[$cat_id]))
+                {
+                    $entry_categories[$cat_id] = array($lang_id);
+                }
+
+                if (!in_array($lang_id, $entry_categories[$cat_id]))
+                {
+                    $entry_categories[$cat_id][] = $lang_id;
+                }
+            }
+        }
+
+        $this->handleCategories($entry_categories);
+        $this->handleCategoryPosts($datagrab->entries);
+    }
+
+    /**
+     * @param array $entry_categories
+     * @return void
+     */
+    private function handleCategories($entry_categories)
+    {
+        $cat_ids = array_keys($entry_categories);
+
+        $query = ee()->db->from('categories')
+            ->where_in('cat_id', $cat_ids)
+            ->get();
+
+        $categories = array();
+
+        foreach ($query->result_array() as $row)
+        {
+            $categories[$row['cat_id']] = $row;
+        }
+
+        foreach ($entry_categories as $cat_id => $languages)
+        {
+            foreach ($languages as $lang_id)
+            {
+                $where = array(
+                    'cat_id' => $cat_id,
+                    'publisher_lang_id' => $lang_id,
+                    'publisher_status' => PUBLISHER_STATUS_OPEN,
+                );
+
+                $data = $categories[$cat_id];
+                $data = array_merge($data, $where);
+                // Publisher isn't concerned with category structure.
+                unset($data['parent_id']);
+                unset($data['cat_order']);
+
+                ee()->publisher_model->insert_or_update(ee()->publisher_category->get_data_table(), $data, $where, 'cat_id');
+            }
+        }
+    }
+
+    /**
+     *
+     * @param array $entry_categories
+     * return @void
+     */
+    private function handleCategoryPosts($entry_ids)
+    {
+        $query = ee()->db->from('category_posts')
+            ->where_in('entry_id', $entry_ids)
+            ->get();
+
+        $entry_categories = array();
+
+        foreach ($query->result_array() as $row)
+        {
+            if (!isset($entry_categories[$row['entry_id']]))
+            {
+                $entry_categories[$row['entry_id']] = array();
+            }
+
+            $entry_categories[$row['entry_id']][] = $row['cat_id'];
+        }
+
+        foreach ($entry_categories as $entry_id => $categories)
+        {
+            // Simulate a normal entry save
+            $data = array(
+                'revision_post' => array(
+                    'category' => $categories
+                ));
+
+            ee()->publisher_category->save_category_posts($entry_id, array(), $data);
+        }
+    }
 
     /**
      * Activate Extension
