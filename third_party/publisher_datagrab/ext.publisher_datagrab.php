@@ -232,7 +232,7 @@ class Publisher_datagrab_ext {
             ->db->from("assets_selections")
             ->db->where($where)
             ->db->order_by("sort_order")
-            ->EE->db->get();
+            ->db->get();
     }
 
     public function ajw_datagrab_rebuild_store_query($where)
