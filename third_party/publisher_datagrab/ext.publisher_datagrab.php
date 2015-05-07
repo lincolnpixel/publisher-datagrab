@@ -79,6 +79,13 @@ class Publisher_datagrab_ext {
         $lang_id = ee()->publisher_language->get_default_language_id();
         $status = PUBLISHER_STATUS_OPEN;
 
+        // JSON imports can contain values such as "path/to/publisher_lang_id"
+        $item = $this->validateProperties(array(
+            'publisher_lang_id',
+            'publisher_status',
+            'entry_id'
+        ), $item);
+
         // If the JSON/XML does not contain publisher fields, then return original data.
         if (isset($item['publisher_lang_id']) && isset($item['publisher_status']))
         {
@@ -272,7 +279,7 @@ class Publisher_datagrab_ext {
         }
 
         $this->handleCategories($entry_categories);
-        $this->handleCategoryPosts($datagrab->entries);
+        $this->handleCategoryPosts($entry_categories, $datagrab->entries);
     }
 
     /**
@@ -281,7 +288,13 @@ class Publisher_datagrab_ext {
      */
     private function handleCategories($entry_categories)
     {
+        if (empty($entry_categories))
+        {
+            return;
+        }
+
         $cat_ids = array_keys($entry_categories);
+        $this->setCategoryIds($cat_ids);
 
         $query = ee()->db->from('categories')
             ->where_in('cat_id', $cat_ids)
@@ -320,8 +333,13 @@ class Publisher_datagrab_ext {
      * @param array $entry_categories
      * return @void
      */
-    private function handleCategoryPosts($entry_ids)
+    private function handleCategoryPosts($entry_categories, $entry_ids)
     {
+        if (empty($entry_categories))
+        {
+            return;
+        }
+
         $query = ee()->db->from('category_posts')
             ->where_in('entry_id', $entry_ids)
             ->get();
@@ -348,6 +366,37 @@ class Publisher_datagrab_ext {
 
             ee()->publisher_category->save_category_posts($entry_id, array(), $data);
         }
+    }
+
+    public function findProperty($name, $item)
+    {
+        foreach ($item as $index => $value)
+        {
+            if ($index === $name || stripos($index, $name) !== FALSE)
+            {
+                return $value;
+            }
+        }
+
+        return NULL;
+    }
+
+    public function validateProperties($properties, $item)
+    {
+        foreach ($properties as $property)
+        {
+            if (!isset($item[$property]))
+            {
+                $value = $this->findProperty($property, $item);
+
+                if ($value !== NULL)
+                {
+                    $item[$property] = $value;
+                }
+            }
+        }
+
+        return $item;
     }
 
     /**
@@ -421,6 +470,4 @@ class Publisher_datagrab_ext {
             return FALSE;
         }
     }
-
-    // ----------------------------------------------------------------------
 }
