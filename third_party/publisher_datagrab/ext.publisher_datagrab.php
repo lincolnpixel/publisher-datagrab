@@ -43,7 +43,7 @@ class Publisher_datagrab_ext {
     public $docs_url        = '';
     public $name            = 'Publisher - Datagrab Support';
     public $settings_exist  = 'n';
-    public $version         = '1.0.2';
+    public $version         = '1.0.3';
     private $cache          = array();
 
     /**
