@@ -184,6 +184,8 @@ class Publisher_datagrab_ext {
         $where['publisher_lang_id'] = ee()->publisher_lib->lang_id;
         $where['publisher_status']  = ee()->publisher_lib->publisher_save_status;
 
+        ee()->db->_reset_select();
+
         return ee()->db->select("*")
             ->where($where)
             ->order_by("row_order")
@@ -206,9 +208,9 @@ class Publisher_datagrab_ext {
         $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
         return ee()->db->select("child_id, order")
-            ->db->where($where)
-            ->db->order_by("order")
-            ->db->get("publisher_relationships");
+            ->where($where)
+            ->order_by("order")
+            ->get("publisher_relationships");
     }
 
     public function ajw_datagrab_rebuild_grid_query($where, $field_id)
@@ -217,10 +219,10 @@ class Publisher_datagrab_ext {
         $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
         return ee()->db->select("*")
-            ->db->from("channel_grid_field_".$field_id)
-            ->db->where($where)
-            ->db->order_by("row_order ASC")
-            ->db->get();
+            ->from("channel_grid_field_".$field_id)
+            ->where($where)
+            ->order_by("row_order ASC")
+            ->get();
     }
 
     public function ajw_datagrab_rebuild_assets_query($where)
@@ -229,10 +231,10 @@ class Publisher_datagrab_ext {
         $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
         return ee()->db->select("file_id")
-            ->db->from("assets_selections")
-            ->db->where($where)
-            ->db->order_by("sort_order")
-            ->db->get();
+            ->from("assets_selections")
+            ->where($where)
+            ->order_by("sort_order")
+            ->get();
     }
 
     public function ajw_datagrab_rebuild_store_query($where)
@@ -241,9 +243,9 @@ class Publisher_datagrab_ext {
         $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
         return ee()->db->from("store_products")
-            ->db->join("store_stock", "store_products.entry_id = store_stock.entry_id")
-            ->db->where($where)
-            ->db->get();
+            ->join("store_stock", "store_products.entry_id = store_stock.entry_id")
+            ->where($where)
+            ->get();
     }
 
     public function ajw_datagrab_pre_import($datagrab){}
@@ -294,7 +296,6 @@ class Publisher_datagrab_ext {
         }
 
         $cat_ids = array_keys($entry_categories);
-        $this->setCategoryIds($cat_ids);
 
         $query = ee()->db->from('categories')
             ->where_in('cat_id', $cat_ids)
