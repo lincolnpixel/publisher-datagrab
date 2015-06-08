@@ -207,6 +207,16 @@ class Publisher_datagrab_ext {
         $where['publisher_lang_id'] = ee()->publisher_lib->lang_id;
         $where['publisher_status'] = ee()->publisher_lib->publisher_save_status;
 
+        if (isset($where['parent_field_id'])) {
+            $where['field_id'] = $where['parent_field_id'];
+            unset($where['parent_field_id']);
+        }
+
+        if (isset($where['parent_entry_id'])) {
+            $where['parent_id'] = $where['parent_entry_id'];
+            unset($where['parent_entry_id']);
+        }
+
         return ee()->db->select("child_id, order")
             ->where($where)
             ->order_by("order")
