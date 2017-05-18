@@ -269,10 +269,9 @@ class Publisher_datagrab_ext {
      */
     public function ajw_datagrab_post_import($datagrab)
     {
-        $imported = $this->cache['imported'];
         $entry_categories = array();
 
-        foreach ($imported as $entry)
+        foreach ($datagrab->entry_data as $entry)
         {
             $lang_id = $entry['publisher_lang_id'];
 
