@@ -253,9 +253,25 @@ class Publisher_datagrab_ext {
         }
 
         foreach ($datagrab->entry_data as $entry) {
-            $lang_id = $entry['publisher_lang_id'];
+            $lang_id = $entry['lang_id'];
 
-            foreach ($entry['category'] as $cat_id) {
+            $categories = [];
+
+            if (isset($entry['category'])) { // EE3
+                $categories = $entry['category'];
+            } elseif (isset($entry['categories'])) { // EE4
+                foreach ($entry['categories'] as $group => $groupCategories) {
+                    // Getting some weird nested array where the previous group is a child of the current.
+                    $filtered = array_filter($groupCategories, function($key) {
+                        return is_integer($key);
+                    }, ARRAY_FILTER_USE_KEY);
+                    $categories = array_merge($categories, $filtered);
+                }
+            }
+
+            $categories = array_unique($categories);
+
+            foreach ($categories as $cat_id) {
                 if (!isset($entry_categories[$cat_id])) {
                     $entry_categories[$cat_id] = [$lang_id];
                 }
