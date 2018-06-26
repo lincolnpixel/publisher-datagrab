@@ -193,6 +193,16 @@ class Publisher_datagrab_ext {
     {
         $where['publisher_lang_id'] = $this->requestService->getCurrentLanguage()->getId();
         $where['publisher_status']  = $this->requestService->getSaveStatus();
+        
+        if (isset($where['parent_entry_id'])) {
+            $where['parent_id'] = $where['parent_entry_id'];
+            unset($where['parent_entry_id']);
+        }
+
+        if (isset($where['parent_field_id'])) {
+            $where['field_id'] = $where['parent_field_id'];
+            unset($where['parent_field_id']);
+        }
 
         return ee()->db->select("child_id, order")
             ->where($where)
