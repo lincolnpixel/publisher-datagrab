@@ -4,6 +4,7 @@ use BoldMinded\Publisher\Enum\Status;
 use BoldMinded\Publisher\Model\Language;
 use BoldMinded\Publisher\Service\Query;
 use BoldMinded\Publisher\Service\Request;
+use EllisLab\ExpressionEngine\Model\Channel\ChannelEntry;
 
 if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
@@ -91,6 +92,10 @@ class Publisher_datagrab_ext {
      */
     public function ajw_datagrab_modify_data_end($datagrab, $data, $item)
     {
+        if (ee()->extensions->last_call) {
+            $data = ee()->extensions->last_call;
+        }
+
         $is_translation = FALSE;
         $lang_id = $this->requestService->getDefaultLanguage()->getId();
         $status = Status::OPEN;
@@ -106,20 +111,20 @@ class Publisher_datagrab_ext {
         if (isset($item['publisher_lang_id']) && isset($item['publisher_status']))
         {
             $is_translation = TRUE;
-            $data['publisher_lang_id'] = $item['publisher_lang_id'];
-            $data['publisher_status'] = $item['publisher_status'];
+            $data['lang_id'] = $item['publisher_lang_id'];
+            $data['status'] = $item['publisher_status'];
         }
         else
         {
-            $data['publisher_lang_id'] = $lang_id;
-            $data['publisher_status'] = $status;
+            $data['lang_id'] = $lang_id;
+            $data['status'] = $status;
         }
 
         if ($is_translation && isset($item['entry_id']))
         {
             $data['entry_id'] = $item['entry_id'];
             $eid = $data['entry_id'];
-            $lid = $data['publisher_lang_id'];
+            $lid = $data['lang_id'];
 
             // Remove entries from Datagrab's internal array so translated entries are
             // flagged as not unique entries.
@@ -142,9 +147,9 @@ class Publisher_datagrab_ext {
         $this->cache['imported'] = $datagrab->entry_data;
 
         // Update Publisher's internals so it saves the imported entry fine.
-        $currentLanguage = $this->languageModel->findLanguageById($data['publisher_lang_id']);
+        $currentLanguage = $this->languageModel->findLanguageById($data['lang_id']);
         $this->requestService->setCurrentLanguage($currentLanguage);
-        $this->requestService->setCurrentStatus($data['publisher_status']);
+        $this->requestService->setCurrentStatus($data['status']);
 
         return $data;
     }
@@ -184,16 +189,14 @@ class Publisher_datagrab_ext {
      */
     public function publisher_call($method, $parameters)
     {
-        if ($method === 'entry_submission_absolute_end' && ee()->input->get('module') === 'datagrab') {
-            ee()->extensions->end_script = true;
-        }
+        // Not necessary in EE3
     }
 
     public function ajw_datagrab_rebuild_relationships_query($where)
     {
         $where['publisher_lang_id'] = $this->requestService->getCurrentLanguage()->getId();
         $where['publisher_status']  = $this->requestService->getSaveStatus();
-        
+
         if (isset($where['parent_entry_id'])) {
             $where['parent_id'] = $where['parent_entry_id'];
             unset($where['parent_entry_id']);
@@ -264,9 +267,7 @@ class Publisher_datagrab_ext {
 
         foreach ($datagrab->entry_data as $entry) {
             $lang_id = $entry['lang_id'];
-
             $categories = [];
-
             if (isset($entry['category'])) { // EE3
                 $categories = $entry['category'];
             } elseif (isset($entry['categories'])) { // EE4
@@ -278,14 +279,11 @@ class Publisher_datagrab_ext {
                     $categories = array_merge($categories, $filtered);
                 }
             }
-
             $categories = array_unique($categories);
-
             foreach ($categories as $cat_id) {
                 if (!isset($entry_categories[$cat_id])) {
                     $entry_categories[$cat_id] = [$lang_id];
                 }
-
                 if (!in_array($lang_id, $entry_categories[$cat_id])) {
                     $entry_categories[$cat_id][] = $lang_id;
                 }
@@ -323,8 +321,8 @@ class Publisher_datagrab_ext {
             foreach ($languages as $lang_id) {
                 $where = [
                     'cat_id' => $cat_id,
-                    'publisher_lang_id' => $lang_id,
-                    'publisher_status' => Status::OPEN,
+                    'lang_id' => $lang_id,
+                    'status' => Status::OPEN,
                 ];
 
                 $data = $categories[$cat_id];
@@ -334,7 +332,7 @@ class Publisher_datagrab_ext {
                 unset($data['parent_id']);
                 unset($data['cat_order']);
 
-                $this->queryService->insertOrUpdate(ee()->publisher_category->get_data_table(), $data, $where, 'cat_id');
+                $this->queryService->insertOrUpdate('publisher_categories', $data, $where, 'cat_id');
             }
         }
     }
@@ -368,14 +366,17 @@ class Publisher_datagrab_ext {
         ee()->load->model('publisher_category');
 
         foreach ($entry_categories as $entry_id => $categories) {
-            // Simulate a normal entry save
-            $data = [
-                'revision_post' => [
-                    'category' => $categories
-                ]
-            ];
 
-            ee()->publisher_category->save_category_posts($entry_id, [], $data);
+            $catObjects = ee('Model')
+                ->get('Category')
+                ->filter('cat_id', 'IN', $categories)
+                ->all();
+
+            /** @var ChannelEntry $entry */
+            $entry = ee('Model')->get('ChannelEntry', $entry_id)->first();
+            $entry->Categories = $catObjects;
+
+            ee()->publisher_category->save_category_posts($entry);
         }
     }
 
@@ -431,11 +432,10 @@ class Publisher_datagrab_ext {
             ['hook'=>'ajw_datagrab_modify_data_end', 'method'=>'ajw_datagrab_modify_data_end'],
             ['hook'=>'ajw_datagrab_validate_entry', 'method'=>'ajw_datagrab_validate_entry'],
 
-            ['hook'=>'ajw_datagrab_rebuild_matrix_query', 'method'=>'ajw_datagrab_rebuild_matrix_query'],
-            ['hook'=>'ajw_datagrab_rebuild_playa_query', 'method'=>'ajw_datagrab_rebuild_playa_query'],
+            ['hook'=>'ajw_datagrab_rebuild_grid_query', 'method'=>'ajw_datagrab_rebuild_grid_query'],
             ['hook'=>'ajw_datagrab_rebuild_relationships_query', 'method'=>'ajw_datagrab_rebuild_relationships_query'],
             ['hook'=>'ajw_datagrab_rebuild_assets_query', 'method'=>'ajw_datagrab_rebuild_assets_query'],
-            ['hook'=>'ajw_datagrab_rebuild_store_query', 'method'=>'ajw_datagrab_rebuild_store_query']
+            ['hook'=>'ajw_datagrab_rebuild_store_query', 'method'=>'ajw_datagrab_rebuild_store_query'],
         ];
 
         foreach($extensions as $extension)
